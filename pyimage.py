@@ -19,6 +19,9 @@ class PyImage(object):
 
         if isinstance(image, Image.Image):
             self.img = image
+            self.pixels = np.array(image.getdata())
+            self.width = self.img.size[0]
+            self.height = self.img.size[1]
         else:
             print "\nERROR: Argument is not an instance of Image class\n"
 
@@ -28,6 +31,9 @@ class PyImage(object):
 
         try:
             self.img = Image.open(filepath)
+            self.pixels = np.array(self.img.getdata())
+            self.width = self.img.size[0]
+            self.height = self.img.size[1]
         except IOError:
             print "\nERROR: File not found.\n"
 
@@ -36,6 +42,7 @@ class PyImage(object):
         '''This function should...'''
 
         try:
+            self.img.putdata(self.pixels)
             self.img.save(filepath)
         except IOError:
             print "\nERROR: File could not be saved.\n"
@@ -50,6 +57,7 @@ class PyImage(object):
 
         if self.img.mode not in ['RGB', 'RGBA']:
             print "\nERROR: Image does not have a red channel\n"
+            return
 
         channel = PyImage()
         channel.loadImage(self.img.split()[0])
@@ -61,6 +69,7 @@ class PyImage(object):
 
         if self.img.mode not in ['RGB', 'RGBA']:
             print "\nERROR: Image does not have a green channel\n"
+            return
 
         channel = PyImage()
         channel.loadImage(self.img.split()[1])
@@ -72,6 +81,7 @@ class PyImage(object):
 
         if self.img.mode not in ['RGB', 'RGBA']:
             print "\nERROR: Image does not have a blue channel\n"
+            return
 
         channel = PyImage()
         channel.loadImage(self.img.split()[2])
@@ -90,6 +100,7 @@ class PyImage(object):
             return
 
         self.img.convert('1')
+        self.pixels = np.array(self.img.getdata())
 
     def convertGrayscale(self):
 
@@ -100,6 +111,7 @@ class PyImage(object):
             return
 
         self.img.convert('L')
+        self.pixels = np.array(self.img.getdata())
 
     # ------------------------------------------------------------------------
     # Pixel reading and writing
@@ -109,10 +121,30 @@ class PyImage(object):
 
         '''This function should...'''
 
-        pass
+        if (x < 0 or x >= self.width - 1):
+            print "\nERROR: Pixel X coordinate out of range\n"
+            return
 
-    def setPixel(x, y):
+        if (y < 0 or y >= self.height - 1):
+            print "\nERROR: Pixel Y coordinate out of range\n"
+            return
+
+        index = x * self.width + y
+
+        return self.pixels[index]
+
+    def setPixel(x, y, value):
 
         '''This functions should...'''
 
-        pass
+        if (x < 0 or x >= self.width - 1):
+            print "\nERROR: Pixel X coordinate out of range\n"
+            return
+
+        if (y < 0 or y >= self.height - 1):
+            print "\nERROR: Pixel Y coordinate out of range\n"
+            return
+
+        index = x * self.width + y
+
+        pixels[index] = value
