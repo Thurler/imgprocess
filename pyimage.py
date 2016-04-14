@@ -88,36 +88,10 @@ class PyImage(object):
         return channel
 
     # ------------------------------------------------------------------------
-    # Channel converting functions
-    # ------------------------------------------------------------------------
-
-    def convertBinary(self):
-
-        '''This function should...'''
-
-        if self.img.mode is '1':
-            print "\nERROR: Image is already a binary image.\n"
-            return
-
-        self.img.convert('1')
-        self.pixels = np.array(self.img.getdata())
-
-    def convertGrayscale(self):
-
-        '''This function should...'''
-
-        if self.img.mode is 'L':
-            print "\nERROR: Image is already a grayscale image.\n"
-            return
-
-        self.img.convert('L')
-        self.pixels = np.array(self.img.getdata())
-
-    # ------------------------------------------------------------------------
     # Pixel reading and writing
     # ------------------------------------------------------------------------
 
-    def getPixel(x, y):
+    def getPixel(self, x, y):
 
         '''This function should...'''
 
@@ -133,7 +107,7 @@ class PyImage(object):
 
         return self.pixels[index]
 
-    def setPixel(x, y, value):
+    def setPixel(self, x, y, value):
 
         '''This functions should...'''
 
@@ -148,3 +122,33 @@ class PyImage(object):
         index = x * self.width + y
 
         pixels[index] = value
+
+    # ------------------------------------------------------------------------
+    # Filters
+    # ------------------------------------------------------------------------
+
+    def convertBinary(self, threshold):
+
+        '''This function should...'''
+
+        self.pixels /= threshold
+        self.pixels /= self.pixels
+        self.pixels *= 255
+
+    def negate(self):
+
+        '''This function should...'''
+
+        self.pixels = 255 - self.pixels
+
+    def gammaCorrection(self, gamma):
+
+        '''This function should...'''
+
+        if gamma <= 0:
+            print "\nERROR: Gamma argument cannot be zero or lower"
+            return
+
+        power = 1.0 / gamma
+
+        self.pixels = (255 * ((self.pixels / 255) ** power)) // 1
