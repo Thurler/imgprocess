@@ -58,7 +58,7 @@ class PyImage(object):
     # Pixel reading and writing
     # ------------------------------------------------------------------------
 
-    def getPixel(self, x, y):
+    def getPixel(self, x, y, c=None):
 
         '''This function should...'''
 
@@ -70,9 +70,12 @@ class PyImage(object):
             print "\nERROR: Pixel Y coordinate out of range\n"
             return
 
-        return self.pixels[y][x]
+        if c is not None:
+            return self.pixels[y][x][c]
+        else:
+            return self.pixels[y][x]
 
-    def setPixel(self, x, y, value):
+    def setPixel(self, value, x, y, c=None):
 
         '''This function should...'''
 
@@ -84,7 +87,10 @@ class PyImage(object):
             print "\nERROR: Pixel Y coordinate out of range\n"
             return
 
-        self.pixels[y][x] = value
+        if c is not None:
+            self.pixels[y][x][c] = value
+        else:
+            self.pixels[y][x] = value
 
     # ------------------------------------------------------------------------
     # Filters
@@ -107,3 +113,80 @@ class PyImage(object):
         power = 1.0 / gamma
 
         self.pixels = (((self.pixels / 255.0) ** power) * 255).astype("uint8")
+
+    def filter(self, size, weights, func):
+
+        '''This function should...'''
+
+        if self.pixels.ndim < 3:
+            window = np.empty((size*2+1, size*2+1), dtype=np.ndarray)
+        else:
+            window = np.empty((size*2+1, size*2+1, len(self.pixels[0][0])),
+                              dtype=np.ndarray)
+
+        if weights.shape != window.shape:
+            print "\nERROR: Weights matrix needs to be same size as window\n"
+            return
+
+        for j in np.arange(size, self.height-size):
+            for i in np.arange(size, self.width-size):
+
+                img_slice = self.pixels[j-size:j+size+1, i-size:i+size+1]
+                window = weights * img_slice
+
+                if self.pixels.ndim < 3:
+                    self.setPixel(func(window), i, j)
+                    continue
+
+                for c in range(len(self.pixels[0][0])):
+                    self.setPixel(func(window[:, :, c]), i, j, c)
+
+    def blur(self, size):
+
+        '''This function should...'''
+
+        if not isinstance(size, int) or size < 1:
+            print "\nERROR: Blur size needs to be an integer higher than 0"
+            return
+
+        if self.pixels.ndim < 3:
+            self.filter(size, np.ones((size*2+1, size*2+1)), np.mean)
+
+        else:
+            self.filter(size,
+                        np.ones((size*2+1, size*2+1, len(self.pixels[0][0]))),
+                        np.mean)
+
+    def medianFilter(self, size):
+
+        '''This function should...'''
+
+        if not isinstance(size, int) or size < 1:
+            print "\nERROR: Blur size needs to be an integer higher than 0"
+            return
+
+        if self.pixels.ndim < 3:
+            self.filter(size, np.ones((size*2+1, size*2+1)), np.median)
+
+        else:
+            self.filter(size,
+                        np.ones((size*2+1, size*2+1, len(self.pixels[0][0]))),
+                        np.median)
+
+    # ------------------------------------------------------------------------
+    # Data Processing
+    # ------------------------------------------------------------------------
+
+    def histogram(self):
+
+        '''This function should...'''
+
+        if self.pixels.ndim < 3:
+            return np.histogram(self.pixels, np.arange(256))[0]
+
+        else:
+            res = []
+            for i in range(len(self.pixels[0][0])):
+                res.append(np.histogram(self.pixels[:, :, i],
+                                        np.arange(256))[0])
+            return tuple(res)
