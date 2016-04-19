@@ -64,6 +64,15 @@ class PyImage(object):
         except IOError:
             print "\nERROR: File could not be saved.\n"
 
+    def copy(self):
+
+        '''This function should return a copy of the current image and pixel
+        matrix.'''
+
+        pyimg = PyImage()
+        pyimg.loadImage(self.img.copy())
+        return pyimg
+
     # ------------------------------------------------------------------------
     # Pixel reading and writing
     # ------------------------------------------------------------------------
@@ -142,43 +151,6 @@ class PyImage(object):
         # I' = 255 * (I / 255)^1/gamma
         self.pixels = (((self.pixels / 255.0) ** power) * 255).astype("uint8")
 
-    def border_filter(self, i, j, size, weights, func):
-
-        '''This function applies the generic filter from the filter function
-        on the image borders, and exists because they need special treatment
-        for in-bound pixel indexing. This method does not wrap around and does
-        not double the edge - it simply discards measurements that are out of
-        bounds.'''
-
-        elements = []
-
-        # Given i, j, we compute the window by hand, discarding the out of
-        # bounds elements:
-        for y in range(-size, size+1):
-            for x in range(-size, size+1):
-                if i-x < 0 or i-x >= self.width:
-                    # Out of bounds
-                    continue
-                if j-y < 0 or j-y >= self.height:
-                    # Out of bounds
-                    continue
-                # Works for both grayscale and RGB
-                element = np.array(self.pixels[j-y][i-x])
-                elements.append(weights[size+y][size+x] * element)
-
-        # Numpy arrays are easy to map functions to specific rows, columns or
-        # pieces of the array through smart indexing
-        elements = np.array(elements)
-
-        if self.pixels.ndim < 3:
-            # Apply function to window
-            self.setPixel(func(elements), i, j)
-            return
-
-        for c in range(len(self.pixels[0][0])):
-            # Apply function to window, but only for channel C
-            self.setPixel(func(elements[:, c]), i, j, c)
-
     def filter(self, size, weights, func):
 
         '''This function should apply a generic filter over every pixel in the
@@ -188,6 +160,8 @@ class PyImage(object):
         window, which should have the same dimensions as the window itself; the
         function to apply to the window to acquire the central pixel's new
         intensity value.'''
+
+        pixels = self.pixels.copy()
 
         # Graycale images are represented in a 2D array, and RGB ones in 3D
         if self.pixels.ndim < 3:
@@ -208,7 +182,7 @@ class PyImage(object):
             for i in np.arange(size, self.width-size):
 
                 # Slice the image, centering the window at pixel (i, j)
-                img_slice = self.pixels[j-size:j+size+1, i-size:i+size+1]
+                img_slice = pixels[j-size:j+size+1, i-size:i+size+1]
 
                 # Apply the weights matrix to the window
                 window = weights * img_slice
@@ -225,22 +199,59 @@ class PyImage(object):
         # Border treatment - upper border
         for j in range(size):
             for i in range(self.width):
-                self.border_filter(i, j, size, weights, func)
+                self.border_filter(pixels, i, j, size, weights, func)
 
         # Border treatment - lower border
         for j in range(self.height-size, self.height):
             for i in range(self.width):
-                self.border_filter(i, j, size, weights, func)
+                self.border_filter(pixels, i, j, size, weights, func)
 
         # Border treatment - left border
         for j in range(size, self.height-size):
             for i in range(size):
-                self.border_filter(i, j, size, weights, func)
+                self.border_filter(pixels, i, j, size, weights, func)
 
         # Border treatment - right border
         for j in range(size, self.height-size):
             for i in range(self.width-size, self.width):
-                self.border_filter(i, j, size, weights, func)
+                self.border_filter(pixels, i, j, size, weights, func)
+
+    def border_filter(self, pixels, i, j, size, weights, func):
+
+        '''This function applies the generic filter from the filter function
+        on the image borders, and exists because they need special treatment
+        for in-bound pixel indexing. This method does not wrap around and does
+        not double the edge - it simply discards measurements that are out of
+        bounds.'''
+
+        elements = []
+
+        # Given i, j, we compute the window by hand, discarding the out of
+        # bounds elements:
+        for y in range(-size, size+1):
+            for x in range(-size, size+1):
+                if i-x < 0 or i-x >= self.width:
+                    # Out of bounds
+                    continue
+                if j-y < 0 or j-y >= self.height:
+                    # Out of bounds
+                    continue
+                # Works for both grayscale and RGB
+                element = np.array(pixels[j-y][i-x])
+                elements.append(weights[size+y][size+x] * element)
+
+        # Numpy arrays are easy to map functions to specific rows, columns or
+        # pieces of the array through smart indexing
+        elements = np.array(elements)
+
+        if self.pixels.ndim < 3:
+            # Apply function to window
+            self.setPixel(func(elements), i, j)
+            return
+
+        for c in range(len(self.pixels[0][0])):
+            # Apply function to window, but only for channel C
+            self.setPixel(func(elements[:, c]), i, j, c)
 
     def blur(self, size):
 
@@ -282,6 +293,32 @@ class PyImage(object):
             self.filter(size,
                         np.ones((size*2+1, size*2+1, len(self.pixels[0][0]))),
                         np.median)
+
+    def sobelFilter(self):
+
+        '''This function should...'''
+
+        if self.pixels.ndim < 3:
+            weights_x = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]])
+            weights_y = np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]])
+
+        else:
+            dim = len(self.pixels[0][0])
+            weights_x = np.array([[[-1]*dim, [0]*dim, [1]*dim],
+                                 [[-2]*dim, [0]*dim, [2]*dim],
+                                 [[-1]*dim, [0]*dim, [1]*dim]])
+            weights_y = np.array([[[-1]*dim, [-2]*dim, [-1]*dim],
+                                 [[0]*dim, [0]*dim, [0]*dim],
+                                 [[1]*dim, [2]*dim, [1]*dim]])
+
+        copy = self.copy()
+
+        self.pixels = self.pixels.astype("int64")
+        self.filter(1, weights_x, np.sum)
+        copy.pixels = copy.pixels.astype("int64")
+        copy.filter(1, weights_y, np.sum)
+
+        self.pixels = np.sqrt(self.pixels**2 + copy.pixels**2).astype("uint8")
 
     # ------------------------------------------------------------------------
     # Data Processing
