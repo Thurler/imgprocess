@@ -83,3 +83,12 @@ class LaplacePyramid(object):
             result = level + result
             result.saveFile(path + str(count) + extension)
             count -= 1
+
+    def blend(self, other, mask, gauss):
+
+        '''This function should...'''
+
+        res = LaplacePyramid()
+        res.gauss_pyramid.pyramid.append(gauss)
+
+        pass

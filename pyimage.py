@@ -77,6 +77,12 @@ class PyImage(object):
         self.width = self.img.size[0]
         self.height = self.img.size[1]
 
+    def updatePixels(self):
+
+        '''This function should...'''
+
+        self.pixels = np.array(self.img)
+
     def loadImage(self, image):
 
         '''This function should initialize the class with a given Image object.
@@ -448,3 +454,9 @@ class PyImage(object):
         self.filter(2, weights, np.sum)
 
         self.pixels *= 4
+
+    def blend(self, other, mask):
+
+        '''This function should...'''
+
+        pass
