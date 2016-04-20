@@ -10,6 +10,50 @@ class PyImage(object):
     to develop several functions from scratch.'''
 
     # ------------------------------------------------------------------------
+    # Interclass operators
+    # ------------------------------------------------------------------------
+
+    def __add__(self, other):
+
+        '''This function should...'''
+
+        if self.img.mode != other.img.mode:
+            print "\nERROR: Images must have same number of channels\n"
+            return
+
+        if (self.width != other.width or self.height != other.height):
+            print "\nERROR: Images must have same width and height\n"
+            return
+
+        res = PyImage()
+        res.pixels = self.pixels + other.pixels
+        res.img = Image.fromarray(res.pixels, self.img.mode)
+        res.width = res.img.size[0]
+        res.height = res.img.size[1]
+
+        return res
+
+    def __sub__(self, other):
+
+        '''This function should...'''
+
+        if self.img.mode != other.img.mode:
+            print "\nERROR: Images must have same number of channels\n"
+            return
+
+        if (self.width != other.width or self.height != other.height):
+            print "\nERROR: Images must have same width and height\n"
+            return
+
+        res = PyImage()
+        res.pixels = self.pixels - other.pixels
+        res.img = Image.fromarray(res.pixels, self.img.mode)
+        res.width = res.img.size[0]
+        res.height = res.img.size[1]
+
+        return res
+
+    # ------------------------------------------------------------------------
     # Input and Output functions
     # ------------------------------------------------------------------------
 
@@ -22,6 +66,14 @@ class PyImage(object):
         self.pixels = np.array(self.img)
 
         # Set width and height for later use
+        self.width = self.img.size[0]
+        self.height = self.img.size[1]
+
+    def updateImage(self):
+
+        '''This function should...'''
+
+        self.img = Image.fromarray(self.pixels, self.img.mode)
         self.width = self.img.size[0]
         self.height = self.img.size[1]
 
@@ -266,13 +318,15 @@ class PyImage(object):
 
         # Weights matrix is a 2D/3D (depending on channels) matrix filled with
         # ones, function is mean
+        length = size * 2 + 1
         if self.pixels.ndim < 3:
-            self.filter(size, np.ones((size*2+1, size*2+1)), np.mean)
+            self.filter(size, np.ones((length, length)) / (length**2), np.mean)
 
         else:
+            dim = len(self.pixels[0][0])
             self.filter(size,
-                        np.ones((size*2+1, size*2+1, len(self.pixels[0][0]))),
-                        np.mean)
+                        np.ones((length, length, dim)) / (length**2),
+                        np.sum)
 
     def medianFilter(self, size):
 
@@ -317,8 +371,26 @@ class PyImage(object):
         self.filter(1, weights_x, np.sum)
         copy.pixels = copy.pixels.astype("int64")
         copy.filter(1, weights_y, np.sum)
-
         self.pixels = np.sqrt(self.pixels**2 + copy.pixels**2).astype("uint8")
+
+    def laplacianFilter(self):
+
+        '''This function should...'''
+
+        if self.pixels.ndim < 3:
+            weights = np.ones((3, 3))
+            weights[1][1] = -8
+
+        else:
+            weights = np.ones((3, 3, 3))
+            weights[1][1] = [-8]*3
+
+        copy = self.copy()
+
+        copy.pixels = copy.pixels.astype("int64")
+        copy.filter(1, weights, np.sum)
+
+        return copy.pixels
 
     # ------------------------------------------------------------------------
     # Data Processing
@@ -342,3 +414,37 @@ class PyImage(object):
                 res.append(np.histogram(self.pixels[:, :, i],
                                         np.arange(256))[0])
             return tuple(res)
+
+    def expand(self):
+
+        '''This function should...'''
+
+        old_pixels = self.pixels.copy()
+        if self.pixels.ndim < 3:
+            self.pixels = np.zeros((self.height * 2, self.width * 2))
+        else:
+            dim = len(self.pixels[0][0])
+            self.pixels = np.zeros((self.height * 2, self.width * 2, dim))
+
+        self.pixels = self.pixels.astype("uint8")
+        self.pixels[::2, ::2] = old_pixels
+
+        self.updateImage()
+
+        arr = np.array([1, 4, 6, 4, 1]) / 16.0
+
+        if self.pixels.ndim < 3:
+            weights = np.empty((5, 5))
+        else:
+            weights = np.empty((5, 5, len(self.pixels[0][0])))
+
+        for i in range(5):
+            for j in range(5):
+                if self.pixels.ndim < 3:
+                    weights[i][j] = arr[i] * arr[j]
+                else:
+                    weights[i][j] = (arr[i] * arr[j],) * len(self.pixels[0][0])
+
+        self.filter(2, weights, np.sum)
+
+        self.pixels *= 4
