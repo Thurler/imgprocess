@@ -22,7 +22,7 @@ class LaplaceBlender(object):
     # Helper functions
     # ------------------------------------------------------------------------
 
-    def defaultMask(self, size):
+    def defaultMask(self, size, mode):
 
         '''This function should...'''
 
@@ -31,7 +31,7 @@ class LaplaceBlender(object):
                                        size[1]/2))
         mask *= 255
 
-        return Image.fromarray(mask.astype("uint8"), "L")
+        return Image.fromarray(mask.astype("uint8"), 'L').convert(mode)
 
     # ------------------------------------------------------------------------
     # Input and Output functions
@@ -43,22 +43,30 @@ class LaplaceBlender(object):
 
         self.l_pyramid_a.loadFile(filepath_a)
         self.l_pyramid_b.loadFile(filepath_b)
+        self.l_pyramid_a.buildPyramid()
+        self.l_pyramid_b.buildPyramid()
 
         size_a = self.l_pyramid_a.gauss_pyramid.pyramid[0].img.size
         size_b = self.l_pyramid_b.gauss_pyramid.pyramid[0].img.size
+        mode_a = self.l_pyramid_a.gauss_pyramid.pyramid[0].img.mode
+        mode_b = self.l_pyramid_b.gauss_pyramid.pyramid[0].img.mode
 
         if size_a != size_b:
             print "\nERROR: The two images do not have the same size\n"
             return
 
+        if mode_a != mode_b:
+            print "\nERROR: The images do not have same number of channels\n"
+            return
+
         if filepath_mask is None:
-            img = self.defaultMask(size_a)
+            img = self.defaultMask(size_a, mode_a)
             self.g_pyramid_mask.loadImage(img)
             self.g_pyramid_mask.reduceMax()
 
         else:
             self.g_pyramid_mask.loadFile(filepath_mask)
-            self.g_pyramid_mask.pyramid[-1].img.convert('L')
+            self.g_pyramid_mask.pyramid[-1].img.convert(mode_a)
             self.g_pyramid_mask.pyramid[-1].updatePixels()
             self.g_pyramid_mask.reduceMax()
 
@@ -68,21 +76,29 @@ class LaplaceBlender(object):
 
         self.l_pyramid_a.loadImage(image_a)
         self.l_pyramid_b.loadImage(image_b)
+        self.l_pyramid_a.buildPyramid()
+        self.l_pyramid_b.buildPyramid()
 
         size_a = self.l_pyramid_a.gauss_pyramid.pyramid[0].img.size
         size_b = self.l_pyramid_b.gauss_pyramid.pyramid[0].img.size
+        mode_a = self.l_pyramid_a.gauss_pyramid.pyramid[0].img.mode
+        mode_b = self.l_pyramid_b.gauss_pyramid.pyramid[0].img.mode
 
         if size_a != size_b:
             print "\nERROR: The two images do not have the same size\n"
             return
 
+        if mode_a != mode_b:
+            print "\nERROR: The images do not have same number of channels\n"
+            return
+
         if filepath_mask is None:
-            img = self.defaultMask(size_a)
+            img = self.defaultMask(size_a, mode_a)
             self.g_pyramid_mask.loadImage(img)
             self.g_pyramid_mask.reduceMax()
 
         else:
-            image_mask.convert('L')
+            image_mask.convert(mode_a)
             self.g_pyramid_mask.loadImage(image_mask)
             self.g_pyramid_mask.reduceMax()
 
@@ -94,12 +110,12 @@ class LaplaceBlender(object):
         extension = '.' + path[-1]
         path = "".join(path[:-1]) + '-'
 
-        self.l_pyramid_a.saveFile(path+'lpyramid-A'+extension)
-        self.l_pyramid_b.saveFile(path+'lpyramid-B'+extension)
-        self.g_pyramid_mask.saveFile(path+'gpyramid-Mask'+extension)
+        self.l_pyramid_a.savePyramid(path+'lpyramid-A'+extension)
+        self.l_pyramid_b.savePyramid(path+'lpyramid-B'+extension)
+        self.g_pyramid_mask.savePyramid(path+'gpyramid-Mask'+extension)
 
         if self.l_pyramid_blend is not None:
-            self.l_pyramid_blend.saveFile(path+'lpyramid-blend'+extension)
+            self.l_pyramid_blend.savePyramid(path+'lpyramid-blend'+extension)
 
     # ------------------------------------------------------------------------
     # Blending functions
@@ -118,4 +134,5 @@ class LaplaceBlender(object):
                         self.g_pyramid_mask.pyramid[-1])
 
         self.l_pyramid_blend = self.l_pyramid_a.blend(self.l_pyramid_b,
-                                                      self.g_pyramid_mask)
+                                                      self.g_pyramid_mask,
+                                                      img)

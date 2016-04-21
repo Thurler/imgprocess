@@ -9,49 +9,54 @@ class PyImage(object):
     other attributes and methods that are built on top of Image's basic calls
     to develop several functions from scratch.'''
 
+    def __init__(self):
+
+        self.img = None
+        self.pixels = None
+        self.width = 0
+        self.height = 0
+
     # ------------------------------------------------------------------------
     # Interclass operators
     # ------------------------------------------------------------------------
+
+    def _operate(self, other, func):
+
+        '''This function should...'''
+
+        if self.img.mode != other.img.mode:
+            print "\nERROR: Images must have same number of channels\n"
+            return
+
+        if (self.width != other.width or self.height != other.height):
+            print "\nERROR: Images must have same width and height\n"
+            return
+
+        res = PyImage()
+        res.pixels = func(self.pixels, other.pixels)
+        res.img = Image.fromarray(res.pixels, self.img.mode)
+        res.width = res.img.size[0]
+        res.height = res.img.size[1]
+
+        return res
 
     def __add__(self, other):
 
         '''This function should...'''
 
-        if self.img.mode != other.img.mode:
-            print "\nERROR: Images must have same number of channels\n"
-            return
-
-        if (self.width != other.width or self.height != other.height):
-            print "\nERROR: Images must have same width and height\n"
-            return
-
-        res = PyImage()
-        res.pixels = self.pixels + other.pixels
-        res.img = Image.fromarray(res.pixels, self.img.mode)
-        res.width = res.img.size[0]
-        res.height = res.img.size[1]
-
-        return res
+        return self._operate(other, np.add)
 
     def __sub__(self, other):
 
         '''This function should...'''
 
-        if self.img.mode != other.img.mode:
-            print "\nERROR: Images must have same number of channels\n"
-            return
+        return self._operate(other, np.subtract)
 
-        if (self.width != other.width or self.height != other.height):
-            print "\nERROR: Images must have same width and height\n"
-            return
+    def __mul__(self, other):
 
-        res = PyImage()
-        res.pixels = self.pixels - other.pixels
-        res.img = Image.fromarray(res.pixels, self.img.mode)
-        res.width = res.img.size[0]
-        res.height = res.img.size[1]
+        '''This function should...'''
 
-        return res
+        return self._operate(other, np.multiply)
 
     # ------------------------------------------------------------------------
     # Input and Output functions
@@ -459,4 +464,11 @@ class PyImage(object):
 
         '''This function should...'''
 
-        pass
+        mask_p = mask.pixels / 255.0
+        img_a = self.pixels
+        img_b = other.pixels
+        pix = (mask_p * img_a) + ((1 - mask_p) * img_b)
+        pix = pix.astype("uint8")
+        res = PyImage()
+        res.loadImage(Image.fromarray(pix, self.img.mode))
+        return res

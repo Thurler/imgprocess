@@ -88,7 +88,20 @@ class LaplacePyramid(object):
 
         '''This function should...'''
 
+        if not self.pyramid or not other.pyramid or not mask.pyramid:
+            print "\nERROR: Please make sure all the pyramids are built\n"
+            return
+
+        if (len(self.pyramid) != len(other.pyramid) or
+                len(self.pyramid) != len(mask.pyramid) - 1):
+            print "\nERROR: Please make sure the pyramids have the same size\n"
+            return
+
         res = LaplacePyramid()
         res.gauss_pyramid.pyramid.append(gauss)
 
-        pass
+        for i in range(len(self.pyramid)):
+            res.pyramid.append(self.pyramid[i].blend(other.pyramid[i],
+                                                     mask.pyramid[i]))
+
+        return res
