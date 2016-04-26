@@ -26,6 +26,7 @@ class LaplaceBlender(object):
 
         '''This function should...'''
 
+        size = (size[1], size[0])
         mask = np.zeros(size)
         mask[:, :size[1]/2] = np.ones((size[0],
                                        size[1]/2))
@@ -66,7 +67,8 @@ class LaplaceBlender(object):
 
         else:
             self.g_pyramid_mask.loadFile(filepath_mask)
-            self.g_pyramid_mask.pyramid[-1].img.convert(mode_a)
+            self.g_pyramid_mask.pyramid[-1].img = \
+                self.g_pyramid_mask.pyramid[-1].img.convert(mode_a)
             self.g_pyramid_mask.pyramid[-1].updatePixels()
             self.g_pyramid_mask.reduceMax()
 
@@ -136,3 +138,13 @@ class LaplaceBlender(object):
         self.l_pyramid_blend = self.l_pyramid_a.blend(self.l_pyramid_b,
                                                       self.g_pyramid_mask,
                                                       img)
+
+    def collapse(self, filepath):
+
+        '''This function should...'''
+
+        if not self.l_pyramid_blend.pyramid:
+            print "\nERROR: Please blend the image pyramids first\n"
+
+        self.l_pyramid_blend.collapsePyramid(filepath,
+                                             self.g_pyramid_mask.info_loss)

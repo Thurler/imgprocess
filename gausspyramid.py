@@ -11,6 +11,7 @@ class GaussPyramid(object):
     def __init__(self):
 
         self.pyramid = []
+        self.info_loss = []
 
     # ------------------------------------------------------------------------
     # Input and Output functions
@@ -26,6 +27,7 @@ class GaussPyramid(object):
         self.img = PyImage()
         self.img.loadFile(filepath)
         self.pyramid.append(self.img)
+        self.info_loss.append((False, False))
 
     def loadImage(self, image):
 
@@ -37,6 +39,7 @@ class GaussPyramid(object):
         self.img = PyImage()
         self.img.loadImage(image)
         self.pyramid.append(self.img)
+        self.info_loss.append((False, False))
 
     def savePyramid(self, filepath):
 
@@ -91,10 +94,22 @@ class GaussPyramid(object):
 
         img.filter(2, weights, np.sum)
 
-        img.pixels = img.pixels[::2, ::2]
+        loss = []
+        if len(img.pixels) % 2:
+            loss.append(True)
+        else:
+            loss.append(False)
+
+        if len(img.pixels[0]) % 2:
+            loss.append(True)
+        else:
+            loss.append(False)
+
+        img.pixels = img.pixels[:-1:2, :-1:2]
         img.updateImage()
 
         self.pyramid.append(img)
+        self.info_loss.append(loss)
 
     def expand(self, level):
 
@@ -110,10 +125,11 @@ class GaussPyramid(object):
 
         try:
             img = self.pyramid[level].copy()
+            loss = self.info_loss[level]
 
         except IndexError:
             print "\nERROR: Please specify a valid index\n"
             return
 
-        img.expand()
+        img.expand(loss)
         return img

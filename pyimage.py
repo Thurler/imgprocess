@@ -24,6 +24,8 @@ class PyImage(object):
 
         '''This function should...'''
 
+        print self.width, other.width, self.height, other.height
+
         if self.img.mode != other.img.mode:
             print "\nERROR: Images must have same number of channels\n"
             return
@@ -33,7 +35,9 @@ class PyImage(object):
             return
 
         res = PyImage()
-        res.pixels = func(self.pixels, other.pixels)
+        res.pixels = func(self.pixels.astype("int64"),
+                          other.pixels.astype("int64"))
+        res.pixels = np.clip(res.pixels, 0, 255).astype("uint8")
         res.img = Image.fromarray(res.pixels, self.img.mode)
         res.width = res.img.size[0]
         res.height = res.img.size[1]
@@ -426,19 +430,33 @@ class PyImage(object):
                                         np.arange(256))[0])
             return tuple(res)
 
-    def expand(self):
+    def expand(self, loss=(False, False)):
 
         '''This function should...'''
 
         old_pixels = self.pixels.copy()
         if self.pixels.ndim < 3:
-            self.pixels = np.zeros((self.height * 2, self.width * 2))
+            if loss[0] and loss[1]:
+                self.pixels = np.zeros((self.height*2+1, self.width*2+1))
+            elif loss[0]:
+                self.pixels = np.zeros((self.height*2+1, self.width*2))
+            elif loss[1]:
+                self.pixels = np.zeros((self.height*2, self.width*2+1))
+            else:
+                self.pixels = np.zeros((self.height*2, self.width*2))
         else:
             dim = len(self.pixels[0][0])
-            self.pixels = np.zeros((self.height * 2, self.width * 2, dim))
+            if loss[0] and loss[1]:
+                self.pixels = np.zeros((self.height*2+1, self.width*2+1, dim))
+            elif loss[0]:
+                self.pixels = np.zeros((self.height*2+1, self.width*2, dim))
+            elif loss[1]:
+                self.pixels = np.zeros((self.height*2, self.width*2+1, dim))
+            else:
+                self.pixels = np.zeros((self.height*2, self.width*2, dim))
 
         self.pixels = self.pixels.astype("uint8")
-        self.pixels[::2, ::2] = old_pixels
+        self.pixels[:-1:2, :-1:2] = old_pixels
 
         self.updateImage()
 
@@ -463,6 +481,15 @@ class PyImage(object):
     def blend(self, other, mask):
 
         '''This function should...'''
+
+        if self.img.mode != other.img.mode:
+            print "\nERROR: Images must have same number of channels\n"
+            return
+
+        if (self.width != other.width or self.height != other.height or
+                self.width != mask.width or self.height != mask.height):
+            print "\nERROR: Images must have same width and height\n"
+            return
 
         mask_p = mask.pixels / 255.0
         img_a = self.pixels

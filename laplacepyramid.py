@@ -67,7 +67,7 @@ class LaplacePyramid(object):
             self.pyramid.append(self.gauss_pyramid.pyramid[i] -
                                 self.gauss_pyramid.expand(i+1))
 
-    def collapsePyramid(self, filepath):
+    def collapsePyramid(self, filepath, loss=None):
 
         '''This function should...'''
 
@@ -79,7 +79,10 @@ class LaplacePyramid(object):
         path = "".join(path[:-1]) + '-'
 
         for level in self.pyramid[::-1]:
-            result.expand()
+            if loss is not None:
+                result.expand(loss[count+1])
+            else:
+                result.expand(self.gauss_pyramid.info_loss[count+1])
             result = level + result
             result.saveFile(path + str(count) + extension)
             count -= 1
