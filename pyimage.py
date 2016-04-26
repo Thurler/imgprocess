@@ -22,22 +22,34 @@ class PyImage(object):
 
     def _operate(self, other, func):
 
-        '''This function should...'''
+        '''This function should implement a generic binary operation between
+        two instances of PyImage. The arguments taken are itself, another
+        instance, and the function to be applied to the pixel matrix.'''
 
-        print self.width, other.width, self.height, other.height
-
+        # Checks if images have same number and type of channels
         if self.img.mode != other.img.mode:
             print "\nERROR: Images must have same number of channels\n"
             return
 
+        # Checks if images have same dimensions
         if (self.width != other.width or self.height != other.height):
             print "\nERROR: Images must have same width and height\n"
             return
 
+        # Create third instance of PyImage, will be our result
         res = PyImage()
-        res.pixels = func(self.pixels.astype("int64"),
-                          other.pixels.astype("int64"))
+
+        # We must cast the pixels matrix to floating point from 8bit ints,
+        # to prevent overflow and underflow when operating with pixels
+        res.pixels = func(self.pixels.astype("Float64"),
+                          other.pixels.astype("Float64"))
+
+        # After applying the function, we saturate values above 255 to said
+        # value, and truncate values below 0 similarly. We then cast the array
+        # back into 8bit integer format
         res.pixels = np.clip(res.pixels, 0, 255).astype("uint8")
+
+        # Once done, we build an image from the pixels matrix and return
         res.img = Image.fromarray(res.pixels, self.img.mode)
         res.width = res.img.size[0]
         res.height = res.img.size[1]
@@ -46,19 +58,22 @@ class PyImage(object):
 
     def __add__(self, other):
 
-        '''This function should...'''
+        '''This function should implement basic addition of two PyImage
+        instances. It uses the generic binary operator.'''
 
         return self._operate(other, np.add)
 
     def __sub__(self, other):
 
-        '''This function should...'''
+        '''This function should implement basic subtraction of two PyImage
+        instances. It uses the generic binary operator.'''
 
         return self._operate(other, np.subtract)
 
     def __mul__(self, other):
 
-        '''This function should...'''
+        '''This function should implement basic multiplication of two PyImage
+        instances. It uses the generic binary operator.'''
 
         return self._operate(other, np.multiply)
 
@@ -80,7 +95,8 @@ class PyImage(object):
 
     def updateImage(self):
 
-        '''This function should...'''
+        '''This function should update the stored image based on the current
+        state of the pixels matrix.'''
 
         self.img = Image.fromarray(self.pixels, self.img.mode)
         self.width = self.img.size[0]
@@ -88,7 +104,8 @@ class PyImage(object):
 
     def updatePixels(self):
 
-        '''This function should...'''
+        '''This function should update the pixels matrix based on the current
+        image saved in this instance.'''
 
         self.pixels = np.array(self.img)
 
@@ -133,8 +150,8 @@ class PyImage(object):
 
     def copy(self):
 
-        '''This function should return a copy of the current image and pixel
-        matrix.'''
+        '''This function should return a deep copy of the current image and
+        pixel matrix.'''
 
         pyimg = PyImage()
         pyimg.loadImage(self.img.copy())
@@ -332,10 +349,10 @@ class PyImage(object):
             return
 
         # Weights matrix is a 2D/3D (depending on channels) matrix filled with
-        # ones, function is mean
+        # 1/(size**2) so that when function sum is applied, we compute the mean
         length = size * 2 + 1
         if self.pixels.ndim < 3:
-            self.filter(size, np.ones((length, length)) / (length**2), np.mean)
+            self.filter(size, np.ones((length, length)) / (length**2), np.sum)
 
         else:
             dim = len(self.pixels[0][0])
@@ -365,12 +382,18 @@ class PyImage(object):
 
     def sobelFilter(self):
 
-        '''This function should...'''
+        '''This function should implement a sobel filter, using the generic
+        filter function above. Currently it is hardocded for a window of size
+        3x3 only, and we build the weights matrix manually. Once done, we apply
+        the derivative filter on both axis and compute the final image.'''
 
+        # Hardcoded implementation of X and Y derivative filters
         if self.pixels.ndim < 3:
             weights_x = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]])
             weights_y = np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]])
 
+        # Hardcoded implementation of X and Y derivative filters, adapted for
+        # a generic number of channels
         else:
             dim = len(self.pixels[0][0])
             weights_x = np.array([[[-1]*dim, [0]*dim, [1]*dim],
@@ -380,32 +403,18 @@ class PyImage(object):
                                  [[0]*dim, [0]*dim, [0]*dim],
                                  [[1]*dim, [2]*dim, [1]*dim]])
 
+        # Create a copy of this instance so we can apply X and Y derivatives
+        # separately
         copy = self.copy()
 
+        # Here, we cast the matrix to 64bit integers, so we can go beyond the
+        # 0-255 range. After operating, we need to cast it back to 8bit so the
+        # image library recognizes the numbers properly
         self.pixels = self.pixels.astype("int64")
         self.filter(1, weights_x, np.sum)
         copy.pixels = copy.pixels.astype("int64")
         copy.filter(1, weights_y, np.sum)
         self.pixels = np.sqrt(self.pixels**2 + copy.pixels**2).astype("uint8")
-
-    def laplacianFilter(self):
-
-        '''This function should...'''
-
-        if self.pixels.ndim < 3:
-            weights = np.ones((3, 3))
-            weights[1][1] = -8
-
-        else:
-            weights = np.ones((3, 3, 3))
-            weights[1][1] = [-8]*3
-
-        copy = self.copy()
-
-        copy.pixels = copy.pixels.astype("int64")
-        copy.filter(1, weights, np.sum)
-
-        return copy.pixels
 
     # ------------------------------------------------------------------------
     # Data Processing
@@ -432,9 +441,21 @@ class PyImage(object):
 
     def expand(self, loss=(False, False)):
 
-        '''This function should...'''
+        '''This function should expand an image so that both of its dimensions
+        are doubled. After expanding the dimensions and filling new pixels with
+        zeros, we apply a specific blue filter on the image. It should be noted
+        that during pyramid operations, pixel rows and columns might be lost
+        due to integer division, so we add the possibility of adding back those
+        with the optional "loss" argument, that states whether we need to
+        restore information to the (Y,X) axis. This is used in pyramid
+        operations.'''
 
+        # Keep copy of current pixel matrix
         old_pixels = self.pixels.copy()
+
+        # Create new empty pixel matrix, with dimensions twice as large as
+        # before. If needed, we add an extra row or column according to the
+        # loss argument.
         if self.pixels.ndim < 3:
             if loss[0] and loss[1]:
                 self.pixels = np.zeros((self.height*2+1, self.width*2+1))
@@ -455,18 +476,29 @@ class PyImage(object):
             else:
                 self.pixels = np.zeros((self.height*2, self.width*2, dim))
 
+        # Cast new pixels matrix to unsigned 8bit integers
         self.pixels = self.pixels.astype("uint8")
+
+        # Insert the old pixel matrix in the new one, alternating rows and
+        # columns. We have to be careful since the assignment requires the
+        # matrices to have same shape, so we add a -1 to limit a possible extra
+        # row or column added by loss reconstruction
         self.pixels[:-1:2, :-1:2] = old_pixels
 
         self.updateImage()
 
+        # Blur filter we should apply to the image
         arr = np.array([1, 4, 6, 4, 1]) / 16.0
 
+        # To create a proper 5x5 filter, we create the weights matrix, taking
+        # into account the number of channels in the image
         if self.pixels.ndim < 3:
             weights = np.empty((5, 5))
         else:
             weights = np.empty((5, 5, len(self.pixels[0][0])))
 
+        # Then, we convolve the 1D filter with itself, creating a proper 5x5
+        # filter we can use with our generic filter function
         for i in range(5):
             for j in range(5):
                 if self.pixels.ndim < 3:
@@ -476,26 +508,43 @@ class PyImage(object):
 
         self.filter(2, weights, np.sum)
 
+        # We multiply the final result by 4 since for every pixel in the new
+        # image, we created 3 new black ones, and we "smudged" the original
+        # pixels' intensity over the new ones, effectively dividing the average
+        # intensity by 4, so we multiply the image by 4 so we dont end up
+        # darkening it as we expand it
         self.pixels *= 4
 
     def blend(self, other, mask):
 
-        '''This function should...'''
+        '''This function should blend two images, following a given mask. The
+        arguments are itself, another instance of PyImage, and a mask that will
+        be used to give weights to each image's intensity. It is very important
+        that the mask has the same intensity across all channels.'''
 
+        # Check if images have same number and type of channel
         if self.img.mode != other.img.mode:
             print "\nERROR: Images must have same number of channels\n"
             return
 
+        # Check if images and mask all have same dimensions
         if (self.width != other.width or self.height != other.height or
                 self.width != mask.width or self.height != mask.height):
             print "\nERROR: Images must have same width and height\n"
             return
 
+        # Cast mask into interval 0-1
         mask_p = mask.pixels / 255.0
+
+        # Extract pixel information from images
         img_a = self.pixels
         img_b = other.pixels
+
+        # Blend the two images and cast the pixel matrix back to 8bit integer
         pix = (mask_p * img_a) + ((1 - mask_p) * img_b)
         pix = pix.astype("uint8")
+
+        # Store result in new instance and return it
         res = PyImage()
         res.loadImage(Image.fromarray(pix, self.img.mode))
         return res
