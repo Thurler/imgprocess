@@ -9,10 +9,11 @@ class LaplacePyramid(object):
 
     '''This class...'''
 
-    def __init__(self):
+    def __init__(self, reduce_default=4):
 
         self.pyramid = []
-        self.gauss_pyramid = GaussPyramid()
+        self.gauss_pyramid = GaussPyramid(reduce_default)
+        self.reduce_default = reduce_default
 
     # ------------------------------------------------------------------------
     # Input and Output functions
@@ -100,7 +101,7 @@ class LaplacePyramid(object):
             print "\nERROR: Please make sure the pyramids have the same size\n"
             return
 
-        res = LaplacePyramid()
+        res = LaplacePyramid(self.reduce_default)
         res.gauss_pyramid.pyramid.append(gauss)
 
         for i in range(len(self.pyramid)):

@@ -11,10 +11,14 @@ class GaussPyramid(object):
     are in the pyramid; and also an array of loss information, so that we can
     prevent pixel lines and columns from being lost when reducing an image.'''
 
-    def __init__(self):
+    def __init__(self, reduce_default=4):
 
         self.pyramid = []
         self.info_loss = []
+        if (isinstance(reduce_default, int)):
+            self.reduce_default = reduce_default
+        else:
+            self.reduce_default = 4
 
     # ------------------------------------------------------------------------
     # Input and Output functions
@@ -84,7 +88,7 @@ class GaussPyramid(object):
         '''This function should reduce the image a fixed number of times. This
         adds a specific amount of levels to the gaussian pyramid.'''
 
-        for i in range(4):
+        for i in range(self.reduce_default):
             self.reduce()
 
     def reduce(self):

@@ -10,11 +10,11 @@ class LaplaceBlender(object):
 
     '''This class...'''
 
-    def __init__(self):
+    def __init__(self, reduce_default=4):
 
-        self.l_pyramid_a = LaplacePyramid()
-        self.l_pyramid_b = LaplacePyramid()
-        self.g_pyramid_mask = GaussPyramid()
+        self.l_pyramid_a = LaplacePyramid(reduce_default)
+        self.l_pyramid_b = LaplacePyramid(reduce_default)
+        self.g_pyramid_mask = GaussPyramid(reduce_default)
 
         self.l_pyramid_blend = None
 
