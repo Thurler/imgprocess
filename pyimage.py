@@ -41,8 +41,8 @@ class PyImage(object):
 
         # We must cast the pixels matrix to floating point from 8bit ints,
         # to prevent overflow and underflow when operating with pixels
-        res.pixels = func(self.pixels.astype("Float64"),
-                          other.pixels.astype("Float64"))
+        res.pixels = func(self.pixels.astype("float64"),
+                          other.pixels.astype("float64"))
 
         # After applying the function, we saturate values above 255 to said
         # value, and truncate values below 0 similarly. We then cast the array
@@ -217,11 +217,11 @@ class PyImage(object):
 
         for j in np.arange(self.height):
             for i in np.arange(self.width):
-                px = self.pixels[i][j]
+                px = self.pixels[j][i]
                 x = sum(matrix[0]*px[0])
                 y = sum(matrix[1]*px[1])
                 z = sum(matrix[2]*px[2])
-                self.pixels[i][j] = np.array([x, y, z])
+                self.pixels[j][i] = np.array([x, y, z])
 
     def convertRGBtoXYZ(self):
 
@@ -246,7 +246,7 @@ class PyImage(object):
 
         for j in np.arange(self.height):
             for i in np.arange(self.width):
-                px = self.pixels[i][j]
+                px = self.pixels[j][i]
                 y = px[1]/whiteRefY
 
                 if y > eps:
@@ -265,7 +265,14 @@ class PyImage(object):
                 u = 13 * L * (up - whiteRefu)
                 v = 13 * L * (vp - whiteRefv)
 
-                self.pixels[i][j] = np.array([L, u, v])
+                self.pixels[j][i] = np.array([L, u, v])
+
+    def convertRGBtoLUV(self):
+
+        '''This function should...'''
+
+        self.convertRGBtoXYZ()
+        self.convertXYZtoLUV()
 
     # ------------------------------------------------------------------------
     # Filters
@@ -569,7 +576,7 @@ class PyImage(object):
         self.filter(2, weights, np.sum)
 
         # We multiply the final result by 4 since for every pixel in the new
-        # image, we created 3 new black ones, and we "smudged" the original
+        # image, we created 3 new black ones, and we "smudged" the original[j]
         # pixels' intensity over the new ones, effectively dividing the average
         # intensity by 4, so we multiply the image by 4 so we dont end up
         # darkening it as we expand it
@@ -608,3 +615,17 @@ class PyImage(object):
         res = PyImage()
         res.loadImage(Image.fromarray(pix, self.img.mode))
         return res
+
+    def meanShiftFilter(self, hs, hr):
+
+        '''This function should... '''
+
+        kernels = np.empty((self.height, self.width, 5))
+
+        for j in np.arange(self.height):
+            kernels[j, :, 0] = j
+
+        for i in np.arange(self.width):
+            kernels[:, i, 1] = i
+
+        kernels[:, :, 2:] = self.copy().convertRGBtoLUV().pixels
