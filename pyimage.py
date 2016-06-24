@@ -208,6 +208,66 @@ class PyImage(object):
             self.pixels[y][x] = value
 
     # ------------------------------------------------------------------------
+    # Converters
+    # ------------------------------------------------------------------------
+
+    def matrixConvert(self, matrix):
+
+        '''This function should...'''
+
+        for j in np.arange(self.height):
+            for i in np.arange(self.width):
+                px = self.pixels[i][j]
+                x = sum(matrix[0]*px[0])
+                y = sum(matrix[1]*px[1])
+                z = sum(matrix[2]*px[2])
+                self.pixels[i][j] = np.array([x, y, z])
+
+    def convertRGBtoXYZ(self):
+
+        '''This function should...'''
+
+        matrix = np.array([[0.4124564, 0.3575761, 0.1804375],
+                           [0.2126729, 0.7151522, 0.0721750],
+                           [0.0193339, 0.1191920, 0.9503041]])
+
+        self.matrixConvert(matrix)
+
+    def convertXYZtoLUV(self):
+
+        '''This function should...'''
+
+        whiteRefY = 1
+        whiteRefu = 0.19784977571475
+        whiteRefv = 0.46834507665248
+        eps = (6/29.0)**3
+        const = (29/3.0)**3
+        power = 1/3.0
+
+        for j in np.arange(self.height):
+            for i in np.arange(self.width):
+                px = self.pixels[i][j]
+                y = px[1]/whiteRefY
+
+                if y > eps:
+                    L = 116*(y**(power)) - 16
+                else:
+                    L = const*y
+
+                magic = px[0] + 15*px[1] + 3*px[2]
+                if magic == 0:
+                    up = 4
+                    vp = 9/15.0
+                else:
+                    up = 4*px[0] / magic
+                    vp = 9*px[1] / magic
+
+                u = 13 * L * (up - whiteRefu)
+                v = 13 * L * (vp - whiteRefv)
+
+                self.pixels[i][j] = np.array([L, u, v])
+
+    # ------------------------------------------------------------------------
     # Filters
     # ------------------------------------------------------------------------
 
