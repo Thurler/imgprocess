@@ -214,64 +214,90 @@ class PyImage(object):
 
     def matrixConvert(self, matrix):
 
-        '''This function should...'''
+        '''This function should apply a 3x3 matrix multiplication over every
+        pixel in the image, multiplying said matrix with [r, g, b].'''
 
+        # Iterate every pixel
         for j in np.arange(self.height):
             for i in np.arange(self.width):
+                # Store pixel values in register
                 px = self.pixels[j][i]
-                x = sum(matrix[0]*px[0])
-                y = sum(matrix[1]*px[1])
-                z = sum(matrix[2]*px[2])
+                # Matrix line times pixel column
+                x = sum(matrix[0]*px)
+                y = sum(matrix[1]*px)
+                z = sum(matrix[2]*px)
+                # Change pixel value
                 self.pixels[j][i] = np.array([x, y, z])
 
     def convertRGBtoXYZ(self):
 
-        '''This function should...'''
+        '''This function should convert the image's pixel values from RGB to
+        XYZ, by calling the above function with the specified matrix below'''
 
+        # Magic matrix
         matrix = np.array([[0.4124564, 0.3575761, 0.1804375],
                            [0.2126729, 0.7151522, 0.0721750],
                            [0.0193339, 0.1191920, 0.9503041]])
 
+        # Assert array type is float
+        self.pixels = self.pixels.astype("float64")
+
+        # Convert pixels
         self.matrixConvert(matrix)
 
     def convertXYZtoLUV(self):
 
-        '''This function should...'''
+        '''This function should convert the image's pixel values from XYZ to
+        LUV, by computing the values based on the closed formula available on
+        the web. The white reference used is specified.'''
 
+        # White reference
         whiteRefY = 1
         whiteRefu = 0.19784977571475
         whiteRefv = 0.46834507665248
+
+        # Various values
         eps = (6/29.0)**3
         const = (29/3.0)**3
         power = 1/3.0
 
+        # Iterate every pixel
         for j in np.arange(self.height):
             for i in np.arange(self.width):
+                # Store pixel in register and compute y
                 px = self.pixels[j][i]
                 y = px[1]/whiteRefY
 
+                # Value of L depends on y
                 if y > eps:
                     L = 116*(y**(power)) - 16
                 else:
                     L = const*y
 
+                # Values of u and v are determined by magic
                 magic = px[0] + 15*px[1] + 3*px[2]
                 if magic == 0:
+                    # Magical solution to zero division
                     up = 4
                     vp = 9/15.0
                 else:
+                    # More wizardry
                     up = 4*px[0] / magic
                     vp = 9*px[1] / magic
 
+                # Take white reference into account
                 u = 13 * L * (up - whiteRefu)
                 v = 13 * L * (vp - whiteRefv)
 
+                # Swap values in pixels matrix
                 self.pixels[j][i] = np.array([L, u, v])
 
     def convertRGBtoLUV(self):
 
-        '''This function should...'''
+        '''This function should be called to convert from RGB to LUV in one
+        single function call, that branches in the usual two calls.'''
 
+        # Convert to XYZ, then LUV
         self.convertRGBtoXYZ()
         self.convertXYZtoLUV()
 
