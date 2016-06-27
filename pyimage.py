@@ -1,6 +1,7 @@
 from PIL import Image
 
 import numpy as np
+import scipy as sp
 
 
 class PyImage(object):
@@ -615,17 +616,3 @@ class PyImage(object):
         res = PyImage()
         res.loadImage(Image.fromarray(pix, self.img.mode))
         return res
-
-    def meanShiftFilter(self, hs, hr):
-
-        '''This function should... '''
-
-        kernels = np.empty((self.height, self.width, 5))
-
-        for j in np.arange(self.height):
-            kernels[j, :, 0] = j
-
-        for i in np.arange(self.width):
-            kernels[:, i, 1] = i
-
-        kernels[:, :, 2:] = self.copy().convertRGBtoLUV().pixels
