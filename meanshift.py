@@ -177,10 +177,11 @@ class MeanShift(object):
                 t = threading.Thread(name=str(i), target=self.kernelIteration,
                                      args=(i, hs, hr, k, kernels, newKernels,
                                            kdTree, checks, 4, img))
-                t.setDaemon(True)
+                t.setDaemon(True)  # Doesn't block main program
                 threads.append(t)
                 t.start()
 
+            # Wait for threads to finish
             for t in threads:
                 t.join()
 
@@ -190,11 +191,15 @@ class MeanShift(object):
             print "DEBUG: Checks min/avg/max:", checks.min(), \
                 np.mean(checks), checks.max()
 
-            # Checks if another iteration will be necessary
+            # Maps check values to epsilon
             boolchecks = checks <= eps
 
+            # Check how many kernels did not move
             stopped = np.count_nonzero(boolchecks)
+
             print "DEBUG: Fixed kernels:", stopped
+
+            # Interrupt if limit is achieved
             if stopped >= (lim*size):
                 break
 
@@ -214,3 +219,78 @@ class MeanShift(object):
 
         # Return kernels for segmentation
         return kernels
+
+    def meanshiftSegment(self, hr, filepath=None):
+
+        '''This function should perform a segmentation in an image based on
+        each pixel's color. It groups together neighbor pixels that have
+        similar colors. By default, it uses the filtered image in the class
+        instance, but it can load a file specified as a argument.'''
+
+        # Check where to load image from, default is class instance
+        if self.msFilter is None:
+            # Check if filepath is specified
+            if filepath is None:
+                # Neither sources are valid, abort
+                print "\nERROR: Please either " + \
+                    "specify a file or run meanshiftFilter.\n"
+                return
+            else:
+                # Load image from filepath
+                img = PyImage()
+                img.loadFile(filepath)
+        else:
+            # Load image from class
+            img = self.msFilter.copy()
+
+        # Start group matrix with zeros
+        groups = np.zeros((img.height, img.width), dtype="uint64")
+        pixels = []  # List of pixels per group
+        colors = []  # Average color per group
+        lastGroup = 0
+
+        # Iterate pixels, assigning group to each pixel
+        for j in np.arange(img.height):
+            for i in np.arange(img.width):
+
+                # If pixel has no group, set a new group for it
+                if not groups[j][i]:
+                    groups[j][i] = lastGroup
+                    lastGroup += 1
+                    pixels.append([(j, i)])
+                    colors.append(img.pixels[j][i].astype("float64"))
+
+                # Get pixel neighbors
+                neighbors = []
+                if i:
+                    neighbors.append((j, i-1, img.pixels[j][i-1]))
+                if j:
+                    neighbors.append((j-1, i, img.pixels[j-1][i]))
+                if i < img.width - 1:
+                    neighbors.append((j, i+1, img.pixels[j][i+1]))
+                if j < img.height - 1:
+                    neighbors.append((j+1, i, img.pixels[j+1][i]))
+
+                # For each neighbor, check if color is similar
+                for neighbor in neighbors:
+                    colorDifference = abs(img.pixels[j][i] - neighbor[2])
+                    relativeDifference = colorDifference < hr
+                    if False not in relativeDifference:
+                        # Color is similar in all 3 channels, put neighbor as
+                        # same group as current pixel
+                        group = groups[j][i]
+                        groups[neighbor[0]][neighbor[1]] = group
+                        pixels[group].append((neighbor[0], neighbor[1]))
+                        colors[group] += neighbor[2]
+
+        # Iterate groups
+        for g in range(lastGroup):
+            color = colors[g]  # Get group color sum
+            color /= len(pixels[g])  # Compute average
+            color = color.astype("uint8")
+            # Iterate pixels, updating their colors
+            for pixel in pixels[g]:
+                img.pixels[pixel[0]][pixel[1]] = color
+
+        # Store result
+        self.msSegment = img
