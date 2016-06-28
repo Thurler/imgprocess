@@ -235,12 +235,27 @@ class PyImage(object):
         XYZ, by calling the above function with the specified matrix below'''
 
         # Magic matrix
-        matrix = np.array([[0.4124564, 0.3575761, 0.1804375],
+        matrix = np.array([[0.412453, 0.3575761, 0.1804375],
                            [0.2126729, 0.7151522, 0.0721750],
                            [0.0193339, 0.1191920, 0.9503041]])
 
-        # Assert array type is float
+        # Assert array type is float and normalize RGB
         self.pixels = self.pixels.astype("float64")
+        self.pixels /= 255.0
+
+        # Pivot RGB values
+        for j in np.arange(self.height):
+            for i in np.arange(self.width):
+                for c in np.arange(3):
+                    v = self.pixels[j][i][c]
+                    if v > 0.04045:
+                        v += 0.055
+                        v /= 1.055
+                        v **= 2.4
+                    else:
+                        v /= 12.92
+                    v *= 100
+                    self.pixels[j][i][c] = v
 
         # Convert pixels
         self.matrixConvert(matrix)
@@ -252,7 +267,7 @@ class PyImage(object):
         the web. The white reference used is specified.'''
 
         # White reference
-        whiteRefY = 1
+        whiteRefY = 100
         whiteRefu = 0.19784977571475
         whiteRefv = 0.46834507665248
 
