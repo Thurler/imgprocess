@@ -183,9 +183,9 @@ class MeanShift(object):
         # Wait until all vectors' magnitudes go below threshold
         while False in boolchecks:
 
+            # Interrupt if exceeps iteration limit
             count += 1
-
-            if count > 200:
+            if count > ops:
                 break
 
             # Iniitalize vectors for this iteration
