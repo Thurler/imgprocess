@@ -657,3 +657,39 @@ class PyImage(object):
         res = PyImage()
         res.loadImage(Image.fromarray(pix, self.img.mode))
         return res
+
+    def simpleHorizontalDerivative(self):
+
+        '''This function should compute the simple derivative along an image's
+        horizontal axis. It should then operate on the pixel matrix's columns,
+        iterating them. It returns a new array with the derivatives.'''
+
+        result = np.zeros((self.height, self.width), dtype="float64")
+
+        for j in np.arange(1, self.height-1):
+            for i in np.arange(1, self.width-1):
+                result[j][i] = 0.5 * (self.pixels[j][i+1]-self.pixels[j][i+1])
+
+        return result
+
+    def simpleVerticalDerivative(self):
+
+        '''This function should compute the simple derivative along an image's
+        vertical axis. It should then operate on the pixel matrix's rows,
+        iterating them. It returns a new array with the derivatives.'''
+
+        result = np.zeros((self.height, self.width), dtype="float64")
+
+        for j in np.arange(1, self.height-1):
+            for i in np.arange(1, self.width-1):
+                result[j][i] = 0.5 * (self.pixels[j+1][i]-self.pixels[j+1][i])
+
+        return result
+
+    def temporalDerivative(self, other):
+
+        '''This function should compute the temporal derivative between this
+        image and another given one, assumed to be the next frame of a video.
+        It returns a new array with the difference.'''
+
+        return (self.pixels - other.pixels).astype("float64")
