@@ -664,11 +664,17 @@ class PyImage(object):
         horizontal axis. It should then operate on the pixel matrix's columns,
         iterating them. It returns a new array with the derivatives.'''
 
+        # Result is a matrix of same dimensions as current image
+        # Assumes to be grayscale
         result = np.zeros((self.height, self.width), dtype="float64")
 
+        # Iterate every non-border pixel
         for j in np.arange(1, self.height-1):
             for i in np.arange(1, self.width-1):
-                result[j][i] = 0.5 * (self.pixels[j][i+1]-self.pixels[j][i+1])
+                # Simple derivative is average of horizontal neighbors
+                # We cast to int here to avoid overflow from uint8
+                result[j][i] = 0.5 * (int(self.pixels[j][i+1]) -
+                                      int(self.pixels[j][i-1]))
 
         return result
 
@@ -678,18 +684,40 @@ class PyImage(object):
         vertical axis. It should then operate on the pixel matrix's rows,
         iterating them. It returns a new array with the derivatives.'''
 
+        # Result is a matrix of same dimensions as current image
+        # Assumes to be grayscale
         result = np.zeros((self.height, self.width), dtype="float64")
 
+        # Iterate every non-border pixel
         for j in np.arange(1, self.height-1):
             for i in np.arange(1, self.width-1):
-                result[j][i] = 0.5 * (self.pixels[j+1][i]-self.pixels[j+1][i])
+                # Simple derivative is average of vertical neighbors
+                # We cast to int here to avoid overflow from uint8
+                result[j][i] = 0.5 * (int(self.pixels[j+1][i]) -
+                                      int(self.pixels[j-1][i]))
 
         return result
 
-    def temporalDerivative(self, other):
+    def temporalDerivative(self, other, y, x, offset):
 
         '''This function should compute the temporal derivative between this
         image and another given one, assumed to be the next frame of a video.
-        It returns a new array with the difference.'''
+        It returns a new array with the difference. Limiits to a 3x3 window
+        centered at (x, y). Accepts an offset for the center.'''
 
-        return (self.pixels - other.pixels).astype("float64")
+        # Result is a 3x3 window
+        result = np.zeros((3, 3), dtype="float64")
+
+        # Unpack offset
+        dy = offset[0]
+        dx = offset[1]
+
+        # Iterate window's center's neighbors
+        for j in [-1, 0, 1]:
+            for i in [-1, 0, 1]:
+                # Simple subtraction is already the result
+                # We cast to int here to avoid overflow from uint8
+                result[j+1][i+1] = (int(other.pixels[y+j+dy][x+i+dx]) -
+                                    int(self.pixels[y+j][x+i]))
+
+        return result
