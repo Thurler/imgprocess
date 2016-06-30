@@ -100,13 +100,15 @@ class MeanShift(object):
                 # Query kdtree for the k nearest neighbors
                 dist, index = kdTree.query(base,
                                            k+1,
-                                           0.01,
+                                           distance_upper_bound=hr,
                                            n_jobs=-1)
 
                 # Iterate each pair distance, index found on the query
                 for d, ind in itertools.izip(dist[1:], index[1:]):
 
                     # Get 2D indexes from 1D one
+                    if ind == kdTree.n:
+                        continue
                     y = ind/img.width
                     x = ind - y*img.width
                     data = kernels[y][x]
@@ -131,6 +133,12 @@ class MeanShift(object):
                     mainSum += data * weight
 
                 # Once done, result is average, if zero, kernel doesnt move
+                if weightSum == 0:
+                    print i, j
+                    newKernels[j][i] = kernels[j][i]
+                    checks[j][i] = 0
+                    valid[j][i] = False
+                    continue
                 result = mainSum / weightSum
                 newKernels[j][i] = result
                 norm = np.linalg.norm(result - base)
@@ -267,58 +275,69 @@ class MeanShift(object):
             img = self.msFilter.copy()
 
         # Start group matrix with zeros
-        groups = np.zeros((img.height, img.width), dtype="uint64")
+        groups = np.zeros((img.height, img.width), dtype="int32")
+        groups -= 1
         pixels = []  # List of pixels per group
         colors = []  # Average color per group
-        lastGroup = 1
+        lastGroup = 0
 
         # Iterate pixels, assigning group to each pixel
         for j in np.arange(img.height):
             for i in np.arange(img.width):
 
                 # If pixel has no group, set a new group for it
-                if not groups[j][i]:
+                if groups[j][i] == -1:
                     groups[j][i] = lastGroup
                     lastGroup += 1
                     pixels.append([(j, i)])
-                    colors.append(img.pixels[j][i])
+                    colors.append(img.pixels[j][i].astype("float64"))
 
                 # Get pixel neighbors
                 neighbors = []
-                if i:
-                    neighbors.append((j, i-1, img.pixels[j][i-1]))
                 if j:
                     neighbors.append((j-1, i, img.pixels[j-1][i]))
-                if i < img.width - 1:
-                    neighbors.append((j, i+1, img.pixels[j][i+1]))
+                    if i:
+                        neighbors.append((j-1, i-1, img.pixels[j-1][i-1]))
+                    if i < img.width - 1:
+                        neighbors.append((j-1, i+1, img.pixels[j-1][i+1]))
                 if j < img.height - 1:
                     neighbors.append((j+1, i, img.pixels[j+1][i]))
+                    if i:
+                        neighbors.append((j+1, i-1, img.pixels[j+1][i-1]))
+                    if i < img.width - 1:
+                        neighbors.append((j+1, i+1, img.pixels[j+1][i+1]))
+                if i:
+                    neighbors.append((j, i-1, img.pixels[j][i-1]))
+                if i < img.width - 1:
+                    neighbors.append((j, i+1, img.pixels[j][i+1]))
 
                 # For each neighbor, check if color is similar
-                group = int(groups[j][i] - 1)
+                group = groups[j][i]
                 for neighbor in neighbors:
-                    if groups[neighbor[0]][neighbor[1]]:
-                        continue
-                    cDiff = abs(colors[group] - neighbor[2]).astype("float64")
-                    cDiff = sum(colorDifference ** 2)
+                    # Compute color difference
+                    cDiff = colors[group] - neighbor[2]
+                    cDiff = sum(cDiff ** 2)
                     cDiff **= 0.5
                     if cDiff < hr:
                         # Color is similar in all 3 channels, put neighbor as
                         # same group as current pixel
+                        groups[neighbor[0]][neighbor[1]] = group
                         oldGroupLen = len(pixels[group])
-                        groups[neighbor[0]][neighbor[1]] = group + 1
                         pixels[group].append((neighbor[0], neighbor[1]))
-                        color = colors[group].astype("float64")
+                        color = colors[group]
                         color *= oldGroupLen
-                        color += neighbor[2].astype("float64")
+                        color += neighbor[2]
                         color /= oldGroupLen + 1
-                        colors[group] = color.astype("uint8")
+                        colors[group] = color
+
+        print lastGroup
 
         # Iterate groups
-        for g in range(lastGroup-1):
+        for g in range(lastGroup):
             # Iterate pixels, updating their colors
+            color = colors[g].astype("uint8")
             for pixel in pixels[g]:
-                img.pixels[pixel[0]][pixel[1]] = colors[g]
+                img.pixels[pixel[0]][pixel[1]] = color
 
         # Store result
         self.msSegment = img
