@@ -717,7 +717,10 @@ class PyImage(object):
             for i in [-1, 0, 1]:
                 # Simple subtraction is already the result
                 # We cast to int here to avoid overflow from uint8
-                result[j+1][i+1] = (int(other.pixels[y+j+dy][x+i+dx]) -
-                                    int(self.pixels[y+j][x+i]))
+                try:
+                    result[j+1][i+1] = (int(other.pixels[y+j+dy][x+i+dx]) -
+                                        int(self.pixels[y+j][x+i]))
+                except IndexError:
+                    return None
 
         return result

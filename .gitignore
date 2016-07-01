@@ -3,3 +3,6 @@
 *.png
 *.pyc
 testscript.py
+datasets/
+frames/
+Images/

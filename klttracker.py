@@ -73,8 +73,11 @@ class TrackingPoint(object):
     '''This class is the structure that will hold together every information
     relating to a single point in the tracker.'''
 
-    def __init__(self, j, i, matrixA, matrixB, eigen):
+    def __init__(self, j, i, matrixA, matrixB, eigen, color):
 
+        self.prevPos = (0, 0)  # Previous (i, j) position
+        self.deleteCounter = 0  # Counter for when point doesnt move much
+        self.originalColor = int(color)  # Original color
         self.j = j  # Y position
         self.i = i  # X position
         self.matrixA = matrixA  # AtA matrix
@@ -108,6 +111,14 @@ class TrackingPoint(object):
         dyWindow = dy[y-1:y+2, x-1:x+2]
         dtWindow = img.temporalDerivative(nextImg, y, x, intOffset)
 
+        if dxWindow.shape != (3, 3) or dyWindow.shape != (3, 3):
+            self.matrixA = None
+            return
+
+        if dtWindow is None:
+            self.matrixA = None
+            return
+
         # Compute auxiliar values from windows, modified by gaussian filter
         dx2 = np.sum((dxWindow ** 2) * gaussFilter)
         dy2 = np.sum((dyWindow ** 2) * gaussFilter)
@@ -125,6 +136,49 @@ class TrackingPoint(object):
         # Compute AtA's lesser eigenvalue
         self.eigen = minEigenValue(self.matrixA)
 
+    def runChecks(self, bounds, boxBounds, img):
+
+        '''This function should check whether this point is still a valid point
+        for tracking after its translation and matrix update.'''
+
+        if self.matrixA is None:
+            return False
+
+        boundX = bounds[0]
+        boundY = bounds[1]
+
+        boxBoundX = boxBounds[0]
+        boxBoundY = boxBounds[1]
+
+        if self.i < boundX[0] or self.i > boundX[1]:
+            return False
+
+        if self.j < boundY[0] or self.j > boundY[1]:
+            return False
+
+        if self.i < boxBoundX[0] or self.i > boxBoundX[1]:
+            return False
+
+        if self.j < boxBoundY[0] or self.j > boxBoundY[1]:
+            return False
+
+        det = (self.matrixA[0][0]*self.matrixA[1][1] -
+               self.matrixA[0][1]*self.matrixA[1][0])
+
+        if det == 0:
+            return False
+
+        if abs(int(img.pixels[self.j][self.i]) - self.originalColor) > 25:
+            return False
+
+        ssd = ((self.i - self.prevPos[0])**2 + (self.j - self.prevPos[1])**2)
+        if ssd < 1:
+            self.deleteCounter += 1
+            if self.deleteCounter > 4:
+                return False
+
+        return True
+
     def computeFlux(self):
 
         '''This function should compute the flux given by the matrices
@@ -132,6 +186,9 @@ class TrackingPoint(object):
 
         # Invert AtA matrix
         invA = invertMatrix(self.matrixA)
+
+        if invA is None:
+            return None, None
 
         # Solve flux = ((AtA)^-1)AtB
         fluxX = np.sum(invA[0] * self.matrixB)
@@ -149,8 +206,13 @@ class TrackingPoint(object):
         by the matrices stored.'''
 
         # Translates point to new pixel in image
+        self.prevPos = (self.i, self.j)
         self.j += int(round(self.fluxY))
         self.i += int(round(self.fluxX))
+
+        # Reset flux
+        self.fluxY = 0
+        self.fluxX = 0
 
 # ------------------------------------------------------------------------
 # Tracker
@@ -197,11 +259,13 @@ class KLTTracker(object):
         # For each frame that will be processed, we will load a single file
         for i in np.arange(1, nFrames+1):
 
-            print "DEBUG: Computing frame", i
+            print "DEBUG: Loading frame", i
 
             # Load each frame
             frame = PyImage()
             frame.loadFile(path+str(i)+extension)
+            frame.img = frame.img.convert("RGB")
+            frame.updatePixels()
 
             # Compute its grayscale counterpart
             grayscaleFrame = frame.copy()
@@ -252,7 +316,17 @@ class KLTTracker(object):
             start = (point.i, point.j)
             end = (point.i + int(round(point.fluxX)),
                    point.j + int(round(point.fluxY)))
-            draw.line([start, end], fill=(0, 0, 255))
+            draw.line([start, end], fill=(0, 255, 0))
+
+        # Get corners for region marking and draw lines
+        tlCorner = self.corners[index][0]
+        brCorner = self.corners[index][1]
+        trCorner = (brCorner[0], tlCorner[1])
+        blCorner = (tlCorner[0], brCorner[1])
+        draw.line([tlCorner, trCorner], fill=(255, 0, 0))
+        draw.line([tlCorner, blCorner], fill=(255, 0, 0))
+        draw.line([trCorner, brCorner], fill=(255, 0, 0))
+        draw.line([blCorner, brCorner], fill=(255, 0, 0))
 
         # Save final image
         im.save(filepath)
@@ -317,15 +391,15 @@ class KLTTracker(object):
         eigenValues = []
 
         # Iterate every pixel, checking if it is a good candidate for tracking
-        for j in np.arange(start[0], end[0]+1):
-            for i in np.arange(start[1], end[1]+1):
+        for j in np.arange(start[1], end[1]+1):
+            for i in np.arange(start[0], end[0]+1):
 
                 # If pixel will become a border pixel when applying pyramid
                 # reduction, discard it
-                if (j < (2**self.pyramid) or
-                        i < (2**self.pyramid) or
-                        j > (img.height - 1 - (2**self.pyramid)) or
-                        i > (img.width - 1 - (2**self.pyramid))):
+                if (j < (2**self.pyramid)+1 or
+                        i < (2**self.pyramid)+1 or
+                        j > (img.height - 2 - (2**self.pyramid)) or
+                        i > (img.width - 2 - (2**self.pyramid))):
                     continue
 
                 # Compute window derivatives and temporal dereivative
@@ -355,7 +429,8 @@ class KLTTracker(object):
                     self.points.append(TrackingPoint(j, i,
                                                      matrixA,
                                                      matrixB,
-                                                     minEigen))
+                                                     minEigen,
+                                                     img.pixels[j][i]))
 
         # Compute highest eigenvalue
         maxEigen = max(eigenValues)
@@ -380,15 +455,13 @@ class KLTTracker(object):
         avgFluxY = fluxSumY / nPoints
         avgFluxX = fluxSumX / nPoints
 
-        print avgFluxX, avgFluxY
-
         # Update border of tracking region
         border = self.corners[-1]
         tlY = border[0][1] + int(round(avgFluxY))
         brY = border[1][1] + int(round(avgFluxY))
         tlX = border[0][0] + int(round(avgFluxX))
         brX = border[1][0] + int(round(avgFluxX))
-        self.corners.append((tlX, tlY), (brX, brY))
+        self.corners.append(((tlX, tlY), (brX, brY)))
 
     def movePoints(self, frameIndex):
 
@@ -398,8 +471,14 @@ class KLTTracker(object):
         # Start flux sum variables and compute number of points
         fluxSumY = fluxSumX = 0
         nPoints = len(self.points)
+        width = self.frames[frameIndex].width
+        height = self.frames[frameIndex].height
+        p = self.pyramid**2
 
-        print "DEBUG: Moving points"
+        bounds = ((p+1, width-p-1), (p+1, height-p-1))
+        corner = self.corners[-1]
+        boxBounds = ((corner[0][0]-20, corner[1][0]+20),
+                     (corner[0][1]-20, corner[1][1]+20))
 
         if self.pyramid:
             # If pyramids will be used, use the pyramid algorithm to update
@@ -419,15 +498,27 @@ class KLTTracker(object):
                                            .pyramid[level],
                                        2**level,
                                        [fluxY, fluxX])
+                    if point.matrixA is None:
+                        break
                     # Compute flux
                     y, x = point.computeFlux()
+                    if y is None:
+                        point.matrixA = None
+                        break
                     fluxY += y
                     fluxX += x
+                point.fluxX = fluxX
+                point.fluxY = fluxY
                 # Add flux to flux sum
+                checkOk = point.runChecks(bounds, boxBounds,
+                                          self.grayscaleFrames[frameIndex])
+                if not checkOk:
+                    self.points.remove(point)
+                    continue
                 fluxSumY += fluxY
                 fluxSumX += fluxX
             # Compute average flux and save the current frame
-            self.computeAverageFlux(fluxSumY, fluxSumX, nPoints)
+            self.computeAverageFlux(fluxSumY, fluxSumX, len(self.points))
             self.saveFrame(frameIndex)
             # Translate every point
             for point in self.points:
@@ -439,10 +530,15 @@ class KLTTracker(object):
             for point in self.points:
                 # Compute flux and add it to flux total sum
                 fluxY, fluxX = point.computeFlux()
+                checkOk = point.runChecks(bounds, boxBounds,
+                                          self.grayscaleFrames[frameIndex])
+                if not checkOk:
+                    self.points.remove(point)
+                    continue
                 fluxSumY += fluxY
                 fluxSumX += fluxX
             # Compute average flux and save the current frame
-            self.computeAverageFlux(fluxSumY, fluxSumX, nPoints)
+            self.computeAverageFlux(fluxSumY, fluxSumX, len(self.points))
             self.saveFrame(frameIndex)
             # Update matrix with the next pair of frames, and translate point
             for point in self.points:
@@ -450,6 +546,9 @@ class KLTTracker(object):
                 if frameIndex != self.nFrames - 2:
                     point.updateMatrix(self.grayscaleFrames[frameIndex+1],
                                        self.grayscaleFrames[frameIndex+2])
+                    if point.matrixA is None:
+                        self.points.remove(point)
+                        continue
 
     def trackRegion(self, topLeftCorner, bottomRightCorner):
 
@@ -462,3 +561,23 @@ class KLTTracker(object):
         self.findFeaturePoints(self.grayscaleFrames[0],
                                self.grayscaleFrames[1],
                                self.corners[-1])
+
+        nPoints = len(self.points)
+
+        for i in range(self.nFrames-1):
+            print "DEBUG: Processing frame", i
+            self.movePoints(i)
+            if len(self.points) < 0.75*nPoints:
+                print "DEBUG: Lost too many points, computing them again"
+                self.points = []
+                try:
+                    self.findFeaturePoints(self.grayscaleFrames[i+1],
+                                           self.grayscaleFrames[i+2],
+                                           self.corners[-1])
+                    nPoints = len(self.points)
+                except IndexError:
+                    pass
+
+        self.corners.append(self.corners[-1])
+        print "Save"
+        self.saveFrame(self.nFrames-1)
